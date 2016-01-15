@@ -37,6 +37,8 @@ abline(v=c(a))
 c<-boxplot(Serie)
 #no hay outliers
 
+plot(decompose(Serie))#Descomposición clásica de una serie de tiempo
+
 ###2. 
 #Transformación Box-Cox debido a varianza creciente
 regresion<-lm(Serie~time(Serie))
