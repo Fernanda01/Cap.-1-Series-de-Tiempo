@@ -31,8 +31,7 @@ for(i in 1:168){A00[i]=A0[i+24]}
 Serie <- ts(A00,start=c(1995,01),end=c(2008,12),frequency=12)
 a=seq(12,276,12)
 plot(Serie)
-par(new=T)
-plot(A00,col="red")
+plot.ts(A00,ylab="Indicador mensual",xlab="meses")
 abline(v=c(a))
 #Detección de registros atípicos
 c<-boxplot(Serie)
