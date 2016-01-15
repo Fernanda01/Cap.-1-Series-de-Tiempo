@@ -13,37 +13,42 @@ library("forecast")
 rm(list=ls())  
 
 #Directorio de trabajo
-#setwd("C:/Users/MSernaM/Documents/Datos") 
-setwd("C:/Users/modulo/Documents/mafer")
+setwd("/Volumes/AGUA")
 
-###1. 
-M<-read.table("Residencial.txt", header = FALSE, sep = "",
-dec = ".")
-M0<-ts(M,st=c(1997,1),end=c(2008,9),frequency=12)
-plot(M0,main="Serie de Tiempo",xlab="meses",
-ylab="Observaciones")
-
+###1. Leer y graficar los datos
+A <- read.table("tabla.txt",header=T,sep="\t",dec=".")
+A0 <- numeric(276)
+for(i in 1:23)
+{for(j in 2:13)
+{A0[(12*(i-1))+(j-1)]=A[i,j]}}
+View(A0)
+plot.ts(A0)
+abline(v=(12*16))
+abline(v=25)
+length(A0[25:192])
+A00 <- numeric(168)
+for(i in 1:168){A00[i]=A0[i+24]}
+Serie <- ts(A00,start=c(1995,01),end=c(2008,12),frequency=12)
+a=seq(12,276,12)
+plot(Serie)
+par(new=T)
+plot(A00,col="red")
+abline(v=c(a))
 #Detección de registros atípicos
-c<-boxplot(M0)
-c$out #valores de los outliers
-
-#Corrección de outliers (valores atípicos)
-for(i in 1:length(M0))
-{if(M0[i]==4732.7|M0[i]==4767.9){print(i)}}
-M0[140]=M0[140-12];M0[141]=M0[141-12]
-boxplot(M0)
-
+c<-boxplot(Serie)
+#no hay outliers
 
 ###2. 
 #Transformación Box-Cox debido a varianza creciente
-regresion<-lm(M0~time(M0))
-boxcox(regresion)
-#lambda=ln(Xt)
+regresion<-lm(Serie~time(Serie))
+boxcox(regresion,lambda=seq(-1,2.5,1/10))
+Datos <- bcPower(Serie,lambda=0.5,jacobian.adjusted=FALSE)
+#lambda=0.5
 
 
 ###3. 
 #Diferencias de la forma (1-B^s)^D
-diferencia1<-diff(M0,lag=12,differences=1)  #s=12 D=1
+diferencia1<-diff(Serie,lag=12,differences=1)  #s=12 D=1
 plot(diferencia1,main="")
 
 
@@ -61,38 +66,40 @@ pacf(diferencia2,main="")
 
 
 ###6.
-modelo1<-arima(log(M0),order=c(1,1,1),
-seasonal=list(order=c(0,1,0),period=12),method="ML")
+modelo1<-arima(Datos,order=c(1,1,1),
+               seasonal=list(order=c(0,1,0),period=12),method="ML")
 modelo1$aic
 
-modelo2<-arima(log(M0),order=c(2,1,2),
-seasonal=list(order=c(0,1,0),period=12),method="ML")
+modelo2<-arima(Datos,order=c(2,1,2),
+               seasonal=list(order=c(0,1,0),period=12),method="ML")
 modelo2$aic
+
+modelo3<-arima(Datos,order=c(3,1,3),
+               seasonal=list(order=c(0,1,0),period=12),method="ML")
+modelo3$aic
+
+modelo4<-arima(Datos,order=c(4,1,4),
+               seasonal=list(order=c(0,1,0),period=12),method="ML")
+modelo4$aic
+
+modelo5<-arima(Datos,order=c(5,1,5),
+               seasonal=list(order=c(0,1,0),period=12),method="ML")
+modelo5$aic
+
+modelo6<-arima(Datos,order=c(6,1,6),
+               seasonal=list(order=c(0,1,0),period=12),method="ML")
+modelo6$aic
 
 #con base en el criterio del menor AIC,
 #el mejor candidato hasta ahora
-#es el modelo1 SARIMA(1,1,1)x(0,1,0)_12
+#es el modelo5 SARIMA(5,1,5)x(0,1,0)_12
 
 
 ###7.
-#ACF y PACF de los residuales del modelo1
+#ACF y PACF de los residuales del modelo5
 par(mfrow=c(2,1))
-acf(modelo1$residuals,main="")
-pacf(modelo1$residuals,main="") 
-
-#intervalos de confianza al 95% para el modelo1
-confint(modelo1)
-
-#Significancia
-modelo1
-.6868/.0882 #> 1.96=percentil de (1-(alfa/2))
-            #de una normal estándar alfa=0.05
-.9527/.0428 #> 1.96=percentil de (1-(alfa/2))
-            #de una normal estándar alfa=0.05
-#observamos que todos los parámetros son significativos,
-#sin embargo, los residuales aún no son un
-#Ruido blanco normal
-
+acf(modelo5$residuals,main="")
+pacf(modelo5$residuals,main="") 
 
 ###8.
 #Con base en la ACF y PACF de los residuales
@@ -101,23 +108,24 @@ modelo1
 #por lo que agregamos parámetros de manera que p=q=12
 #en la parte ARMA(p,q) del modelo SARIMA
 
-modelo3<-arima(log(M0),order=c(12,1,12),
-seasonal=list(order=c(0,1,0),period=12),method="ML")
+modelo7<-arima(Datos,order=c(12,1,12),
+               seasonal=list(order=c(0,1,0),period=12),method="ML")
 
 #ACF y PACF de los residuales del modelo ampliado 
 par(mfrow=c(2,1))
-acf(modelo3$residuals)
-pacf(modelo3$residuals)
+acf(modelo7$residuals)
+pacf(modelo7$residuals)
 
-Box.test(modelo3$residuals)
+Box.test(modelo7$residuals)
 #hay independencia entre residuales
+#observamos que los residuales se comportan como un ruido balnco, 
+#veamos significancia en los parámetros del modelo ampliado 
 
 #Significancia
-modelo3
-prueba<-numeric(24)  #24=p+q de la parte ARMA(p,q)
-                         #del modelo SARIMA
+modelo7
+prueba<-numeric(24)  #24=p+q de la parte ARMA(p,q) del modelo SARIMA
 for(i in 1:24)
-{prueba[i]=abs(modelo3$coef[i]/sqrt(modelo3$var.coef[i,i]))}
+{prueba[i]=abs(modelo7$coef[i]/sqrt(modelo7$var.coef[i,i]))}
 prueba              
 
 #el vector prueba guarda el valor de la estadística
@@ -125,224 +133,246 @@ prueba
 #que 1.96 entonces el parámetro es estadísticamente
 #no significativo al 95% de confianza
 
-#En este caso el parámetro menos significativo fue el 
-#ma1 por lo que lo eliminamos
-modelo4<-arima(log(M0),order=c(12,1,12),
-seasonal=list(order=c(0,1,0),period=12),method="ML",
-transform.pars=FALSE,fixed=c(NA,NA,NA,NA,NA,NA,NA,NA,
-NA,NA,NA,NA,0,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
-
-modelo4
-
-#ACF y PACF de residuales del modelo4
-par(mfrow=c(2,1))
-acf(modelo4$residuals)
-pacf(modelo4$residuals)
-#los residuales aún se comportan como un ruido blanco
-#normal por lo que no agregamos más parámetros y
-#proseguimos a reinspeccionar la significancia estadística
-#de los parámetros que nos quedan
-
-#El parámetro ma1 ha sido eliminado, repitamos el proceso
-#para el siguiente parámetro no significativo
-sd=c(.0956,.2052,.1488,.2409,.197,.2262,.2075,.1897,.1772,
-.1661,.1499,.1194,1,.2132,.1144,.1964,.1654,.1489,.2008,
-.1167,.1859,.1408,.1385,.1739)
-abs(modelo4$coef/sd) #El siguiente no significativo es ar7
-
-modelo5<-arima(log(M0),order=c(12,1,12),
-seasonal=list(order=c(0,1,0),period=12),method="ML",
-transform.pars=FALSE,fixed=c(NA,NA,NA,NA,NA,NA,0,NA,
-NA,NA,NA,NA,0,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
-
-modelo5
-
-#ACF y PACF de residuales del modelo5
-par(mfrow=c(2,1))
-acf(modelo5$residuals)
-pacf(modelo5$residuals)
-#los residuales aún se comportan como un ruido blanco
-#normal por lo que no agregamos más parámetros y
-#proseguimos a reinspeccionar la significancia estadística
-#de los parámetros que nos quedan
-
-#El parámetro ar7 ha sido eliminado, repitamos el proceso
-#para el siguiente parámetro no significativo
-sd=c(.0944,.2018,.1288,.2397,.1188,.2122,1,.1655,.1049,
-.1532,.1176,.1184,1,.2083,.0958,.1957,.1175,.1413,.1575,
-.1151,.1746,.1324,.1369,.1553)
-abs(modelo5$coef/sd) #El siguiente no significativo es ar5
-
-#En los siguientes pasos se desarrolla la misma idea
-#hasta llegar al modelo final (modelo22)
-
-modelo6<-arima(log(M0),order=c(12,1,12),
-seasonal=list(order=c(0,1,0),period=12),method="ML",
-transform.pars=FALSE,fixed=c(NA,NA,NA,NA,0,NA,0,NA,NA,
-NA,NA,NA,0,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
-
-modelo6
-
-par(mfrow=c(2,1))
-acf(modelo6$residuals)
-pacf(modelo6$residuals)
-
-sd=c(.0913,.1951,.1087,.2282,1,.2013,1,.1624,.1050,.1526,
-.1158,.1182,1,.1994,.0885,.1885,.1084,.1403,.1508,.1149,
-.1676,.1317,.1332,.1525)
-abs(modelo6$coef/sd) #El siguiente no significativo es ar3
-
-modelo7<-arima(log(M0),order=c(12,1,12),
-seasonal=list(order=c(0,1,0),period=12),method="ML",
-transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,NA,0,NA,NA,
-NA,NA,NA,0,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
-
-modelo7
-
-par(mfrow=c(2,1))
-acf(modelo7$residuals)
-pacf(modelo7$residuals)
-
-sd=c(.0865,.1739,1,.2111,1,.1963,1,.1614,.0951,.1516,
-.1078,.1162,1,.1789,.0816,.1784,.0995,.1398,.1354,
-.1135,.1468,.1313,.1265,.1384)
-abs(modelo7$coef/sd) #El siguiente no significativo es ar12
-
-modelo8<-arima(log(M0),order=c(12,1,12),
-seasonal=list(order=c(0,1,0),period=12),method="ML",
-transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,NA,0,NA,NA,
-NA,NA,0,0,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+#En este caso el parámetro menos significativo fue el ar3
+# entonces lo eliminamos
+modelo8<-arima(Datos,order=c(12,1,12),
+               seasonal=list(order=c(0,1,0),period=12),method="ML",
+               transform.pars=FALSE,fixed=c(NA,NA,0 ,NA,NA,NA,NA,NA,NA,NA,NA,NA,
+                                            NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
 
 modelo8
 
+#ACF y PACF de residuales del modelo8
 par(mfrow=c(2,1))
 acf(modelo8$residuals)
 pacf(modelo8$residuals)
+#los residuales aún se comportan como un ruido blanco
+#por lo que no agregamos más parámetros y
+#proseguimos a reinspeccionar la significancia estadística
+#de los parámetros que nos quedan
 
-sd=c(.0915,.1483,1,.1763,1,.1617,1,.1207,.0981,.1058,
-.1129,1,1,.1722,.0964,.1591,.1174,.1337,.1466,.1135,
-.1543,.1257,.1312,.1288)
-abs(modelo8$coef/sd) #El siguiente no significativo es ma6
+#El parámetro ar3 ha sido eliminado, repitamos el proceso
+#para el siguiente parámetro no significativo
+sd=c(.1273,.1218,1,.1744,.2760,.2886,.1769,.1331,.2218,.2485,.2420,
+     .1709,.1267,.0953,.0918,.1491,.1814,.1486,.1012,.0903,.1010,.1220,
+     .1747,.1741)
+abs(modelo8$coef/sd) #El siguiente no significativo es ma4
 
-modelo9<-arima(log(M0),order=c(12,1,12),
-seasonal=list(order=c(0,1,0),period=12),method="ML",
-transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,NA,NA,
-NA,NA,0,0,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+modelo9<-arima(Datos,order=c(12,1,12),
+               seasonal=list(order=c(0,1,0),period=12),method="ML",
+               transform.pars=FALSE,fixed=c(NA,NA,0,NA,NA,NA,NA,NA,NA,NA,NA,NA,
+                                            NA,NA,NA,0,NA,NA,NA,NA,NA,NA,NA,NA))
 
 modelo9
 
+#ACF y PACF de residuales del modelo5
 par(mfrow=c(2,1))
 acf(modelo9$residuals)
 pacf(modelo9$residuals)
+#los residuales aún se comportan como un ruido blanco
+#por lo que no agregamos más parámetros y
+#proseguimos a reinspeccionar la significancia estadística
+#de los parámetros que nos quedan
 
-sd=c(.0952,.1215,1,.155,1,1,1,.119,.1189,.1425,.1135,1,1,.128,.1042,.1773,.0994,.1253,.1047,.1183,.1202,.1531,.1018,.1376)
-abs(modelo9$coef/sd) #El siguiente no significativo es ma4
+#El parámetro ma4 ha sido eliminado, repitamos el proceso
+#para el siguiente parámetro no significativo
+sd=c(.1246,.1127,1,.096,.1791,.2171,.14,.1282,.1592,.1645,.1858,
+     .1418,.1245,.0946,.0752,1,.1437,.1246,.0904,.0888,.0925,.1061,
+     .1326,.1482)
+abs(modelo9$coef/sd) #El siguiente no significativo es ma1
 
-modelo10<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,NA,NA,NA,NA,0,0,NA,NA,0,NA,NA,NA,NA,NA,NA,NA,NA))
+#En los siguientes pasos se desarrolla la misma idea
+#hasta llegar al modelo final 
+
+modelo10<-arima(Datos,order=c(12,1,12),
+               seasonal=list(order=c(0,1,0),period=12),method="ML",
+               transform.pars=FALSE,fixed=c(NA,NA,0,NA,NA,NA,NA,NA,NA,NA,NA,NA,
+                                            0,NA,NA,0,NA,NA,NA,NA,NA,NA,NA,NA))
+
 modelo10
-sd=c(.0911,.1178,1,.0965,1,1,1,.1082,.1010,.1146,.1059,1,1,.1242,.0903,1,.1017,.1192,.1049,.097,.0832,.1169,.0967,.1041)
-abs(modelo10$coef/sd) #El siguiente no significativo es ar8
 
-modelo11<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,0,NA,NA,NA,0,0,NA,NA,0,NA,NA,NA,NA,NA,NA,NA,NA))
+par(mfrow=c(2,1))
+acf(modelo10$residuals)
+pacf(modelo10$residuals)
+
+sd=c(.1073,.1041,1,.112,.1677,.1859,.1592,.1345,.1346,.1402 ,.1386,
+     .1082,1,.0970,.0754,1,.0731,.0823,.0906,.0963,.099,.0972,.0957,
+     0.0878)
+abs(modelo10$coef/sd) #El siguiente no significativo es ar7
+
+modelo11<-arima(Datos,order=c(12,1,12),
+               seasonal=list(order=c(0,1,0),period=12),method="ML",
+               transform.pars=FALSE,fixed=c(NA,NA,0 ,NA,NA,NA,0,NA,NA,NA,NA,NA,
+                                            0 ,NA,NA,0 ,NA,NA,NA,NA,NA,NA,NA,NA))
+
 modelo11
-sd=c(.0912,.1167,1,.0961,1,1,1,1,.0994,.1128,.1054,1,1,.1186,.0898,1,.1017,.1172,.104,.0828,.0827,.1129,.0959,.1034)
-abs(modelo11$coef/sd) #El siguiente no significativo es ma11
 
-modelo12<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,0,NA,NA,NA,0,0,NA,NA,0,NA,NA,NA,NA,NA,NA,0,NA))
+par(mfrow=c(2,1))
+acf(modelo11$residuals)
+pacf(modelo11$residuals)
+
+sd=c(.0843,.0952,1,.1034,.1391,.1162,1,.1053,.1334,.1276,.1279,.1096,
+     1,.0913,.0650,1,.0775,.0862,.0673,.0773,.0694,.083,.077,.0799)
+abs(modelo11$coef/sd) #El siguiente no significativo es ma2
+
+modelo12<-arima(Datos,order=c(12,1,12),
+               seasonal=list(order=c(0,1,0),period=12),method="ML",
+               transform.pars=FALSE,fixed=c(NA,NA,0,NA,NA,NA,0,NA,NA,NA,NA,NA,
+                                            0,0,NA,0,NA,NA,NA,NA,NA,NA,NA,NA))
+
 modelo12
-sd=c(.0911,.1183,1,.098,1,1,1,1,.1002,.1102,.0887,1,1,.1117,.0914,1,.1048,.1002,.1062,.0807,.0817,.1060,1,.2036)
-abs(modelo12$coef/sd) #El siguiente no significativo es ma9
 
-modelo13<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,0,NA,NA,NA,0,0,NA,NA,0,NA,NA,NA,NA,0,NA,0,NA))
+par(mfrow=c(2,1))
+acf(modelo12$residuals)
+pacf(modelo12$residuals)
+
+sd=c(0.0834,.0839,1,.1034,.1388,.114,1,.1049,.132,.1271,.1274,.1068,
+     1,1,.0651,1,.076,.0835,.0677,.0764,.0679,.0757,.0717 ,.0769)
+abs(modelo12$coef/sd) #El siguiente no significativo es ar4
+
+modelo13<-arima(Datos,order=c(12,1,12),
+               seasonal=list(order=c(0,1,0),period=12),method="ML",
+               transform.pars=FALSE,fixed=c(NA,NA,0,0,NA,NA,0,NA,NA,NA,NA,NA,
+                                            0,0,NA,0,NA,NA,NA,NA,NA,NA,NA,NA))
+
 modelo13
-sd=c(.0916,.1118,1,.0974,1,1,1,1,.0957,.1114,.0891,1,1,.1047,.0904,1,.0975,.1003,.097,.0821,1,.109,1,.0974)
-abs(modelo13$coef/sd) #El siguiente no significativo es ar11
 
-modelo14<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,0,NA,NA,0,0,0,NA,NA,0,NA,NA,NA,NA,0,NA,0,NA))
+par(mfrow=c(2,1))
+acf(modelo13$residuals)
+pacf(modelo13$residuals)
+
+sd=c(.0776,.08,1,1,.1007,.0958 ,1,.1033,.1301,.1269,.1268,.1058,
+     1,1,.0644,1,.0714,.0786,.0665,.0746,.0674,.075,.071,.0758)
+abs(modelo13$coef/sd) #El siguiente no significativo es ma7
+
+modelo14<-arima(Datos,order=c(12,1,12),
+                seasonal=list(order=c(0,1,0),period=12),method="ML",
+                transform.pars=FALSE,fixed=c(NA,NA,0,0,NA,NA,0,NA,NA,NA,NA,NA,
+                                             0,0,NA,0,NA,NA,0,NA,NA,NA,NA,NA))
 modelo14
-sd=c(.0906,.1138,1,.0978,1,1,1,1,.0911,.1126,1,1,1,.1069,.09,1,.0978,.099,.096,.0842,1,.1096,1,.0957)
-abs(modelo14$coef/sd) #El siguiente no significativo es ma2
+par(mfrow=c(2,1))
+acf(modelo14$residuals)
+pacf(modelo14$residuals)
 
-modelo15<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,0,NA,NA,0,0,0,0,NA,0,NA,NA,NA,NA,0,NA,0,NA))
+sd=c(.0778,.0799,1,1,.1027,.0997,1,.1085,.1434,.1264,.1315,.1131,
+     1,1,.0733,1,.1031,.085,1,.0958,.0976,.0789,.1003,.0859)
+abs(modelo14$coef/sd) #El siguiente no significativo es ar9
+
+modelo15<-arima(Datos,order=c(12,1,12),
+                seasonal=list(order=c(0,1,0),period=12),method="ML",
+                transform.pars=FALSE,fixed=c(NA,NA,0,0,NA,NA,0,NA,0,NA,NA,NA,
+                                             0,0,NA,0,NA,NA,0,NA,NA,NA,NA,NA))
 modelo15
-sd=c(.0928,.1006,1,.0999,1,1,1,1,.0918,.1193,1,1,1,1,.0916,1,.1025,.1085,.0893,.0871,1,.1139,1,.1003)
-abs(modelo15$coef/sd) #El siguiente no significativo es ar10
+par(mfrow=c(2,1))
+acf(modelo15$residuals)
+pacf(modelo15$residuals)
 
-modelo16<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,0,NA,0,0,0,0,0,NA,0,NA,NA,NA,NA,0,NA,0,NA))
+sd=c(.0773,.0743,1,1,.099,.0968,1,.0729,1,.0999,.1156,.103,1,
+     1,.0672,1,.0953,.0864,1,.0826,.0756,.0798,.0934,.0779)
+abs(modelo15$coef/sd) #El siguiente no significativo es ma9
+
+modelo16<-arima(Datos,order=c(12,1,12),
+                seasonal=list(order=c(0,1,0),period=12),method="ML",
+                transform.pars=FALSE,fixed=c(NA,NA,0,0,NA,NA,0,NA,0,NA,NA,NA,
+                                             0,0,NA,0,NA,NA,0,NA,0,NA,NA,NA))
 modelo16
-sd=c(.0924,.1040,1,.1018,1,1,1,1,.0882,1,1,1,1,1,.1001,1,.1034,.1086,.0929,.0798,1,.0796,1,.0956)
-abs(modelo16$coef/sd) #El siguiente no significativo es ma10
+par(mfrow=c(2,1))
+acf(modelo16$residuals)
+pacf(modelo16$residuals)
+sd=c(.0781,.0727,1,1,.0903,.0899,1,.0727,1,.0975,.1136,.1017,1,
+     1,.0679 ,1,.0864,.0853,1,.08,1,.0830,.0906,.0820)
+abs(modelo16$coef/sd) #El siguiente no significativo es ma6
 
-modelo17<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,0,NA,0,0,0,0,0,NA,0,NA,NA,NA,NA,0,0,0,NA))
+modelo17<-arima(Datos,order=c(12,1,12),
+                seasonal=list(order=c(0,1,0),period=12),method="ML",
+                transform.pars=FALSE,fixed=c(NA,NA,0,0,NA,NA,0,NA,0,NA,NA,NA,
+                                             0,0,NA,0,NA,0,0,NA,0,NA,NA,NA))
 modelo17
-sd=c(.0916,.1024,1,.0976,1,1,1,1,.0838,1,1,1,1,1,.1026,1,.0904,.1125,.0905,.0754,1,1,1,.0933)
-abs(modelo17$coef/sd) #El siguiente no significativo es ar9
+par(mfrow=c(2,1))
+acf(modelo17$residuals)
+pacf(modelo17$residuals)
+sd=c(.0852,.077,1,1,.0874,.0948 ,1,.0731,1,.0886,.1093,.1040,1,
+     1,.0729,1,.0974,1,1,.0908 ,1,.0982,.1112,.0964)
+abs(modelo17$coef/sd) #El siguiente no significativo es ma8
 
-modelo18<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,0,0,0,0,0,0,0,NA,0,NA,NA,NA,NA,0,0,0,NA))
+modelo18<-arima(Datos,order=c(12,1,12),
+                seasonal=list(order=c(0,1,0),period=12),method="ML",
+                transform.pars=FALSE,fixed=c(NA,NA,0,0,NA,NA,0,NA,0,NA,NA,NA,
+                                             0,0,NA,0,NA,0,0,0,0,NA,NA,NA))
 modelo18
-sd=c(.0922,.0997,1,.0951,1,1,1,1,1,1,1,1,1,1,.1038,1,.095,.1181,.0965,.0769,1,1,1,.1021)
-abs(modelo18$coef/sd) #El siguiente no significativo es ma6
+par(mfrow=c(2,1))
+acf(modelo18$residuals)
+pacf(modelo18$residuals)
+sd=c(.087,.0779,1,1,.0914,.092,1,.0751,1,.09,.1166,.1078,1,
+     1,.0773,1,.1005,1,1,1,1,.1046,.1177,.0912)
+abs(modelo18$coef/sd) #El siguiente no significativo es ar8
 
-modelo19<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,0,0,0,0,0,0,0,NA,0,NA,0,NA,NA,0,0,0,NA))
+modelo19<-arima(Datos,order=c(12,1,12),
+                seasonal=list(order=c(0,1,0),period=12),method="ML",
+                transform.pars=FALSE,fixed=c(NA,NA,0,0,NA,NA,0,0,0,NA,NA,NA,
+                                             0,0,NA,0,NA,0,0,0,0,NA,NA,NA))
 modelo19
-sd=c(.0879,.1,1,.0914,1,1,1,1,1,1,1,1,1,1,.1022,1,.0955,1,.0955,.0857,1,1,1,.108)
-abs(modelo19$coef/sd) #El siguiente no significativo es ma8
+par(mfrow=c(2,1))
+acf(modelo19$residuals)
+pacf(modelo19$residuals)
+sd=c(.082,.0803,1,1,.0989,.1011,1,1,1,.0975,.1249,.1206 ,1,1,
+     .0733,1,.1208,1,1,1,1,.0994,.1231,.1037)
+abs(modelo19$coef/sd) #El siguiente no significativo es ma5
 
-modelo20<-arima(log(M0),order=c(12,1,12),seasonal=list(order=c(0,1,0),period=12),method="ML",
-               transform.pars=FALSE,fixed=c(NA,NA,0,NA,0,0,0,0,0,0,0,0,0,0,NA,0,NA,0,NA,0,0,0,0,NA))
+modelo20<-arima(Datos,order=c(12,1,12),
+                seasonal=list(order=c(0,1,0),period=12),method="ML",
+                transform.pars=FALSE,fixed=c(NA,NA,0,0,NA,NA,0,0,0,NA,NA,NA,
+                                             0,0,NA,0,0,0,0,0,0,NA,NA,NA))
 modelo20
-sd=c(.0894,.0956,1,.089,1,1,1,1,1,1,1,1,1,1,.094,1,.0943,1,.0865,1,1,1,1,.1103)
-abs(modelo20$coef/sd) #El siguiente no significativo es ar1
+par(mfrow=c(2,1))
+acf(modelo20$residuals)
+pacf(modelo20$residuals)
 
-modelo21<-arima(log(M0),order=c(12,1,12),
-seasonal=list(order=c(0,1,0),period=12),method="ML",
-transform.pars=FALSE,fixed=c(0,NA,0,NA,0,0,0,0,0,0,0,
-0,0,0,NA,0,NA,0,NA,0,0,0,0,NA))
+sd=c(.0810,.0821,1,1,.0728,.0748,1,1,1,.0977,.1307,.1162,1,1,
+     .0917 ,1,1,1,1,1,1,.09,.0954,.0917)
+abs(modelo20$coef/sd) #El siguiente no significativo es ma3
 
+modelo21<-arima(Datos,order=c(12,1,12),
+                seasonal=list(order=c(0,1,0),period=12),method="ML",
+                transform.pars=FALSE,fixed=c(NA,NA,0,0,NA,NA,0,0,0,NA,NA,NA,
+                                             0,0,0,0,0,0,0,0,0,NA,NA,NA))
 modelo21
-
 par(mfrow=c(2,1))
 acf(modelo21$residuals)
 pacf(modelo21$residuals)
 
-sd=c(1,.0948,1,.0915,1,1,1,1,1,1,1,1,1,1,.0803,1,.0963,
-1,.0878,1,1,1,1,.1095)
-abs(modelo21$coef/sd) #El siguiente no significativo es ma3
+sd=c(.0799,.0843,1,1,.0741,.0763,1,1,1,.1021,.1336,.1153,1,1,
+     1,1,1,1,1,1,1,.0854,.1035,.0841)
+abs(modelo21$coef/sd) #El siguiente no significativo es ar12
 
-modelo22<-arima(log(M0),order=c(12,1,12),
-seasonal=list(order=c(0,1,0),period=12),method="ML",
-transform.pars=FALSE,fixed=c(0,NA,0,NA,0,0,0,0,0,0,0,
-0,0,0,0,0,NA,0,NA,0,0,0,0,NA))
-
+modelo22<-arima(Datos,order=c(12,1,12),
+                seasonal=list(order=c(0,1,0),period=12),method="ML",
+                transform.pars=FALSE,fixed=c(NA,NA,0,0,NA,NA,0,0,0,NA,NA,0,
+                                             0,0,0,0,0,0,0,0,0,NA,NA,NA))
 modelo22
+par(mfrow=c(2,1))
+acf(modelo22$residuals,lag=100)
+pacf(modelo22$residuals,lag=100)
+#Observamos que la posición 12 de la parte autoregresiva guarda una fuerte correlación para el 
+#modelo, entonces no es descartado el parámetro ar12
 
-sd=c(1,.0956,1,.0875,1,1,1,1,1,1,1,1,1,1,1,1,.1022,1,
-.0906,1,1,1,1,.1008)
-abs(modelo22$coef/sd) #Todos son significativos
+#por lo que el modelo final es el modelo 21
+#SARIMA(12,1,12)x(0,1,0)_12
+confint(modelo21)
 
 #Veamos la ACF y PACF de los residuales
 par(mfrow=c(2,1))
-acf(modelo22$residuals)
-pacf(modelo22$residuals) 
+acf(modelo21$residuals)
+pacf(modelo21$residuals) 
 
-Box.test(modelo22$residuals)
-#hay independencia entre los residuales del modelofinal
-shapiro.test(modelo22$residuals)
-#hay normalidad entre los residuales del modelo final
-#Por lo tanto los residuales
-#ya se distribuyen como un ruido blanco normal
-                         
-#Finalmente el modelo22 es el modelo adecuado el cual es un
-#SARIMA(4,1,12)x(0,1,0)_12
+Box.test(modelo21$residuals)
+#con un 95% de confianza no rechazamos que haya independencia
+#en los residuales del modelo final
+shapiro.test(modelo21$residuals)
+#con un 95% de confianza rechazamos que los residuales se distribuyan de manera normal
+#por lo que los residuales del modelo final se distribuyen como un ruido blanco
+
+#Finalmente el modelo21 es el modelo adecuado el cual es un
+#SARIMA(12,1,12)x(0,1,0)_12
 #y cuenta con el aic más pequeño
-modelo22
+modelo21
